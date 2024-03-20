@@ -1,4 +1,5 @@
 import gnupg
+import os
 
 class PGPManager:
     def __init__(self, gpg_home):
@@ -24,15 +25,17 @@ class PGPManager:
             )
         return status.ok
 
-    def decrypt_file(self, file_path, output_path):
+    def decrypt_file(self, file_path, output_path, passphrase=None):
         """
         Decrypt a PGP-encrypted file.
         :param file_path: Path to the encrypted input file.
         :param output_path: Path to save the decrypted file.
+        :param passphrase: The passphrase for the private key (if required).
         """
         with open(file_path, 'rb') as f:
             status = self.gpg.decrypt_file(
-                file=f,
+                fileobj_or_path=f,
+                passphrase=passphrase,
                 output=output_path
             )
         return status.ok
@@ -62,13 +65,42 @@ class PGPManager:
         else:
             return None
 
+    def import_private_key(self, key_path, passphrase=None):
+        """
+        Import a private key for decryption.
+        :param key_path: Path to the private key file.
+        :param passphrase: Passphrase for the private key (if required).
+        """
+        with open(key_path, 'r') as keyfile:
+            key_data = keyfile.read()
+        import_result = self.import_key(key_data)
+        # Optionally, handle passphrase here if necessary for specific implementations
+        return import_result
+
 
 
 if __name__ == "__main__":
+    workdir = "/workspaces/encryption-examples/pgp/"
+    public_key = os.path.join(workdir, "public-key.asc")
+    file_to_encrypt = os.path.join(workdir, "raw.txt")
+    encrypted_file = os.path.join(workdir, "processed.gpg")
+    private_key = os.path.join(workdir, "private-key.asc")
+    passphrase = '123456'
+    decrypted_file = os.path.join(workdir, "decrypted.txt")
+
     pgp_manager = PGPManager(gpg_home='/workspaces/')
-    recipient_id = pgp_manager.get_recipient_from_key('/workspaces/encryption-examples/pgp/public-key.asc')
+    recipient_id = pgp_manager.get_recipient_from_key(public_key)
     print(f"Extracted recipient: {recipient_id}")
 
     # Now, you can use recipient_id for encryption
-    encrypt_success = pgp_manager.encrypt_file('/workspaces/encryption-examples/pgp/raw.txt', '/workspaces/encryption-examples/pgp/processed.gpg', recipient_id)
+    encrypt_success = pgp_manager.encrypt_file(file_to_encrypt, encrypted_file, recipient_id)
     print(f"Encryption success: {encrypt_success}")
+
+    # Decrypt
+    # Importing a private key (replace with actual paths and passphrase)
+    private_key_import_result = pgp_manager.import_private_key(private_key, passphrase=passphrase)
+    print(f"Private key import success: {private_key_import_result}")
+
+    # Decrypting a file using the imported private key
+    decrypt_success = pgp_manager.decrypt_file(encrypted_file, decrypted_file, passphrase=passphrase)
+    print(f"Decryption success: {decrypt_success}")
